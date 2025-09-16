@@ -68,11 +68,9 @@ MCP_CAN CAN(SPI_CS_PIN);
 
 unsigned long lastDebounceTime = 0;
 unsigned long delayTime = 10000;
-
 static unsigned long lastUpdate = 0;
 static bool paused = false;
 static bool isCanOk;
-
 uint16_t  rpm = 0;
 uint8_t coolantTemp = 0;
 uint8_t speed_kmh = 0;
@@ -247,8 +245,8 @@ void loop() {
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
-  Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
-  Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
+  //Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
+  //Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
   
   int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
   int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
@@ -264,14 +262,15 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   }
 
   FIS_WRITE_CRC = (0xFF ^ FIS_WRITE_START);
-
   FIS_WRITE_startENA();
   FIS_WRITE_sendByte(FIS_WRITE_START);
+
   for (int i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line1[i]);
     FIS_WRITE_CRC += FIS_WRITE_line1[i];
   }
+
   for (int i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line2[i]);
@@ -290,6 +289,7 @@ void FIS_WRITE_sendByte(int Byte) {
     iResult[i] = Byte % 2;
     Byte = Byte / 2;
   }
+
   for (int i = 7; i >= 0; i--) {
     switch (iResult[i]) {
       case 1: digitalWrite(FIS_WRITE_DATA, HIGH);
@@ -323,17 +323,24 @@ void FIS_WRITE_stopENA() {
 //END WRITE TO CLUSTER
 
 String centerString8(const String& input) {
-    String result = "        "; // 8 пробелов
+    String result = "        "; // 8 witespace
     int len = input.length();
     if (len >= 8) {
-        result = input.substring(0, 8);
-    } else {
-        int paddingRight = (8 - len) / 2;
-        int paddingLeft = 8 - len - paddingRight; // если нечетное, левый меньше, правый больше
-        int index = 0;
-        for (int i = 0; i < paddingLeft; i++) result[index++] = ' ';
-        for (int i = 0; i < len; i++) result[index++] = input[i];
-        for (int i = 0; i < paddingRight; i++) result[index++] = ' ';
+      result = input.substring(0, 8);
+    }
+    else {
+      int paddingRight = (8 - len) / 2;
+      int paddingLeft = 8 - len - paddingRight;
+      int index = 0;
+      for (int i = 0; i < paddingLeft; i++){
+        result[index++] = ' ';
+      }
+      for (int i = 0; i < len; i++){
+        result[index++] = input[i];
+      }
+      for (int i = 0; i < paddingRight; i++){
+        result[index++] = ' ';
+      }
     }
     return result;
 }
