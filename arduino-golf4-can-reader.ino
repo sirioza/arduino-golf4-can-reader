@@ -36,6 +36,12 @@
 //1,0,1,1,1,1,1,0,
 //1,0,0,1,0,0,1,1};
 
+//CLUSTERS ID
+#define SPEEDOMETR_ID 0x5A0
+#define COOLANT_TEMP_ID 0x288
+#define RPM_ID 0x280
+#define ABS_SPEED_ID 0x1A0
+
 //WRITE TO CLUSTER
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -48,11 +54,9 @@ int FIS_WRITE_ENA_STATUS = 0;
 uint8_t FIS_WRITE_CRC = 0;
 //END WRITE TO CLUSTER
 
-int screen = 0;
-int adviceStringCount = 0;
-int fullStringCount = 0;
-int smallStringCount = 0;
-int refreshClusterTime = 300;
+uint8_t screen = 0;
+uint16_t smallStringCount = 0;
+uint16_t refreshClusterTime = 300;
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
@@ -66,17 +70,20 @@ const int SPI_CS_PIN = 10;   // CS
 const int CAN_INT_PIN = 9;   // INT
 MCP_CAN CAN(SPI_CS_PIN);
 
-unsigned long lastDebounceTime = 0;
 unsigned long delayTime = 10000;
 static unsigned long lastUpdate = 0;
 static bool paused = false;
 static bool isCanOk;
+
 uint16_t  rpm = 0;
 uint8_t coolantTemp = 0;
-uint8_t speed_kmh = 0;
-static uint16_t fuelCounterStart = 0;
-float fuelUsedLiters = 0;
-float speedCalib = 0.756;
+
+float absSpeed_kmh = 0;
+float lastSpeed = 0;
+float accelTime = 0;
+float holdUntil = 0;
+bool reached100 = false;
+static uint32_t startTime = 0;
 
 void setup() {
   //WRITE TO CLUSTER
@@ -109,21 +116,40 @@ void loop() {
     byte len = 0;
     byte buf[8];
 
-    CAN.readMsgBuf(&id, &len, buf); // read buffer
+    CAN.readMsgBuf(&id, &len, buf);
 
     switch (id) {
-      case 0x5A0: { // speedometer
-        uint16_t speed_raw = ((uint16_t)buf[2] << 8) | buf[1]; // MSB | LSB
-        speed_kmh = speed_raw / 148.0 * speedCalib;
-        break;
-      }
-      case 0x288: { // coolant temperature
+      case COOLANT_TEMP_ID: {
         uint8_t AA = buf[1];
         coolantTemp = getCoolantTemp(AA);
         break;
       }
-      case 0x280: { // engine RPM
+      case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
+        break;
+      }
+      case ABS_SPEED_ID: {
+        //absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
+        absSpeed_kmh = buf[3] * 1.33f;
+
+        if (!reached100) {
+          if (absSpeed_kmh < 1.0 && rpm > 4000) {
+            startTime = millis();
+          }
+
+          if (absSpeed_kmh >= 100.0 && startTime > 0) {
+            accelTime = (millis() - startTime) / 1000.0;
+            reached100 = true;
+            holdUntil = millis() + 5000;
+          }
+        }
+
+        if (absSpeed_kmh < 1.0 && reached100) {
+          reached100 = false;
+          accelTime = 0;
+          startTime = 0;
+        }
+
         break;
       }
     }
@@ -134,7 +160,7 @@ void loop() {
       FIS_WRITE_line1 = "WELCOME";
       FIS_WRITE_line2 = "SIARHEI";
 
-      if(smallStringCount >= 10000/refreshClusterTime){
+      if (smallStringCount >= 10000/refreshClusterTime){
         screen++;
         smallStringCount = 0;
       }
@@ -143,28 +169,38 @@ void loop() {
       FIS_WRITE_line1 = "jjjjjjjj" +
         centerString8("RPM") +
         centerString8("COOLANT") +
-        centerString8("SPEED") +
         "jjjjjjjj";
 
       FIS_WRITE_line2 = "jjjjjjjj" +
         centerString8(String(rpm)) +
         centerString8(String(coolantTemp)+ "kC") +
-        centerString8(String(speed_kmh)+ "KM/H") +
         "jjjjjjjj";
 
-      if(fullStringCount >= 360000/refreshClusterTime){
+      if (!reached100 && absSpeed_kmh < 1.0 && rpm > 4000){
         screen++;
-        adviceStringCount = 0;
       }
+
       break;
     case 2:
-      FIS_WRITE_line1 = " ADVICE";
-      FIS_WRITE_line2 = "jjjjjjjjTAKE A REST AT THE NEAREST PERMITTED PLACEjjjjjjjj";
-      paused = false;
-      if(adviceStringCount >= 5){
-        screen--;
-        fullStringCount = 0;
+      FIS_WRITE_line1 = centerString8(String(accelTime)+ "S");
+      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5))+ "KM/H");
+
+      if (reached100) {
+        if (millis() > holdUntil) {
+          reached100 = false;
+          accelTime = 0;
+          startTime = 0;
+          screen--;
+        }
       }
+      else {
+        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
+          accelTime = 0;
+          startTime = 0;
+          screen--;
+        }
+      }
+
       break;
   }
 
@@ -176,7 +212,7 @@ void loop() {
   //refresh cluster each "refreshClusterTime"
   if (millis() - FIS_WRITE_last_refresh > refreshClusterTime && (FIS_WRITE_line1_length > 0 || FIS_WRITE_line2_length > 0)) {
     if (FIS_WRITE_line1_length > 8) {
-      
+
       for (int i = 0; i < 8; i++) {
         if (FIS_WRITE_rotary_position_line1 + i >= 0 && (FIS_WRITE_rotary_position_line1 + i) < FIS_WRITE_line1_length) {
           FIS_WRITE_sendline1[i] = FIS_WRITE_line1[FIS_WRITE_rotary_position_line1 + i];
@@ -190,7 +226,7 @@ void loop() {
         else {
           FIS_WRITE_rotary_position_line1 = 0;
         }
-      }    
+      }
     }
     else {
       FIS_WRITE_sendline1 = FIS_WRITE_line1;
@@ -208,7 +244,6 @@ void loop() {
           FIS_WRITE_rotary_position_line2++;
         }
         else {
-          adviceStringCount++;
           FIS_WRITE_rotary_position_line2 = 0;
         }
 
@@ -227,8 +262,6 @@ void loop() {
           paused = false;
         }
       }
-
-      fullStringCount++;
     }
     else {
       smallStringCount++;
@@ -247,7 +280,7 @@ void loop() {
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   //Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
   //Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
-  
+
   int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
   int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   if (FIS_WRITE_line1_length <= 8) {
@@ -323,34 +356,47 @@ void FIS_WRITE_stopENA() {
 //END WRITE TO CLUSTER
 
 String centerString8(const String& input) {
-    String result = "        "; // 8 witespace
+    String result = "        "; // 8 whitespace
     int len = input.length();
     if (len >= 8) {
-      result = input.substring(0, 8);
+        result = input.substring(0, 8);
     }
     else {
-      int paddingRight = (8 - len) / 2;
-      int paddingLeft = 8 - len - paddingRight;
+      int totalPadding = 8 - len;
+      int paddingLeft, paddingRight;
+
+      if (len % 2 == 0) {
+          paddingLeft = totalPadding / 2;
+          paddingRight = totalPadding - paddingLeft;
+      } else {
+          paddingLeft = totalPadding / 2 + 1;
+          paddingRight = totalPadding - paddingLeft;
+      }
+
       int index = 0;
       for (int i = 0; i < paddingLeft; i++){
         result[index++] = ' ';
       }
+
       for (int i = 0; i < len; i++){
         result[index++] = input[i];
       }
+
       for (int i = 0; i < paddingRight; i++){
         result[index++] = ' ';
       }
     }
+
     return result;
 }
 
+
 uint8_t getCoolantTemp(uint8_t AA) {
     if (AA <= 0x3D) {
-      return map(AA, 0x01, 0x3D, -45, 0);       // -45…0°C   
+      return map(AA, 0x01, 0x3D, -45, 0);       // -45…0°C
     }
     if (AA <= 0x72) {
-      return map(AA, 0x3D, 0x72, 0, 40);        // 0…40°C      
+      return map(AA, 0x3D, 0x72, 0, 40);        // 0…40°C
     }
     if (AA <= 0xED) {
       return map(AA, 0x72, 0xED, 40, 130);      // 40…130°C
