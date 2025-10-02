@@ -1,40 +1,18 @@
 #include <SPI.h>
 #include "mcp_can.h"
 
-//END WRITE TO CLUSTER
-//data pin 4
-//clk  pin 3
-//ena  pin 2
-//WRITE TO CLUSTER
+//CONTROL UNIT PIN
 #define FIS_WRITE_ENA 2
 #define FIS_WRITE_CLK 3
 #define FIS_WRITE_DATA 4
 #define FIS_WRITE_PULSEW 50
 #define FIS_WRITE_STARTPULSEW 100
 #define FIS_WRITE_START 15 //something like address, first byte is always 15
-//END WRITE TO CLUSTER
-//#define BINCODE 000011111011111010101010101110111011011010111100101100111010101010111101101011001011001110110000101010011011111010110100101101101011111010010011
-//                000011111011111010101010101110111011011010111100101100111010101010111101101011001011001110110000101010011011111010110100101101101011111010010011
 
-//int BINCODE[144]={
-//0,0,0,0,1,1,1,1,
-//1,0,1,1,1,1,1,0,
-//1,0,1,0,1,0,1,0,
-//1,0,1,1,1,0,1,1,
-//1,0,1,1,0,1,1,0,
-//1,0,1,1,1,1,0,0,
-//1,0,1,1,0,0,1,1,
-//1,0,1,0,1,0,1,0,
-//1,0,1,1,1,1,0,1,
-//1,0,1,0,1,1,0,0,
-//1,0,1,1,0,0,1,1,
-//1,0,1,1,0,0,0,0,
-//1,0,1,0,1,0,0,1,
-//1,0,1,1,1,1,1,0,
-//1,0,1,1,0,1,0,0,
-//1,0,1,1,0,1,1,0,
-//1,0,1,1,1,1,1,0,
-//1,0,0,1,0,0,1,1};
+//CAN PIN
+const int SPI_CS_PIN = 10;   // CS
+const int CAN_INT_PIN = 9;   // INT
+MCP_CAN CAN(SPI_CS_PIN);
 
 //CLUSTERS ID
 #define SPEEDOMETR_ID 0x5A0
@@ -42,7 +20,6 @@
 #define RPM_ID 0x280
 #define ABS_SPEED_ID 0x1A0
 
-//WRITE TO CLUSTER
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
 long FIS_WRITE_rotary_position_line1 = -8;
@@ -52,23 +29,10 @@ long FIS_WRITE_last_refresh = 0;
 int FIS_WRITE_nl = 0;
 int FIS_WRITE_ENA_STATUS = 0;
 uint8_t FIS_WRITE_CRC = 0;
-//END WRITE TO CLUSTER
 
 uint8_t screen = 0;
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
-
-//WRITE TO CLUSTER
-void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
-void FIS_WRITE_sendByte(int Bit);
-void FIS_WRITE_startENA();
-void FIS_WRITE_stopENA();
-//END WRITE TO CLUSTER
-
-//CAN PARAMS
-const int SPI_CS_PIN = 10;   // CS
-const int CAN_INT_PIN = 9;   // INT
-MCP_CAN CAN(SPI_CS_PIN);
 
 unsigned long delayTime = 10000;
 static unsigned long lastUpdate = 0;
@@ -77,13 +41,19 @@ static bool isCanOk;
 
 uint16_t  rpm = 0;
 uint8_t coolantTemp = 0;
-
 float absSpeed_kmh = 0;
 float lastSpeed = 0;
 float accelTime = 0;
 float holdUntil = 0;
 bool reached100 = false;
 static uint32_t startTime = 0;
+
+//WRITE TO CLUSTER
+void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
+void FIS_WRITE_sendByte(int Bit);
+void FIS_WRITE_startENA();
+void FIS_WRITE_stopENA();
+//END WRITE TO CLUSTER
 
 void setup() {
   //WRITE TO CLUSTER
@@ -95,7 +65,7 @@ void setup() {
   digitalWrite(FIS_WRITE_DATA, HIGH);
   Serial.begin(9600); //10400
 
-  //CAN
+  //INIT CAN
   for (byte i = 0; i < 5; i++) {
     isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
     if(isCanOk) {
@@ -129,8 +99,7 @@ void loop() {
         break;
       }
       case ABS_SPEED_ID: {
-        //absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
-        absSpeed_kmh = buf[3] * 1.33f;
+        absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
 
         if (!reached100) {
           if (absSpeed_kmh < 1.0 && rpm > 4000) {
@@ -268,7 +237,7 @@ void loop() {
       FIS_WRITE_sendline2 = FIS_WRITE_line2;
     }
 
-    //Serial.println("refresh");
+    //REFRESH
     FIS_WRITE_sendTEXT(FIS_WRITE_sendline1, FIS_WRITE_sendline2);
     FIS_WRITE_last_refresh = millis();
   }
@@ -337,23 +306,17 @@ void FIS_WRITE_sendByte(int Byte) {
   }
 }
 
+//START WRITE TO CLUSTER
 void FIS_WRITE_startENA() {
   if (!digitalRead(FIS_WRITE_ENA)) {
     digitalWrite(FIS_WRITE_ENA, HIGH);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    //  digitalWrite(FIS_WRITE_ENA,LOW);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    //  digitalWrite(FIS_WRITE_ENA,HIGH);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    // FIS_WRITE_ENA_STATUS=1;
   }
 }
 
+//END WRITE TO CLUSTER
 void FIS_WRITE_stopENA() {
   digitalWrite(FIS_WRITE_ENA, LOW);
-  // FIS_WRITE_ENA_STATUS=0;
 }
-//END WRITE TO CLUSTER
 
 String centerString8(const String& input) {
     String result = "        "; // 8 whitespace
@@ -390,7 +353,6 @@ String centerString8(const String& input) {
     return result;
 }
 
-
 uint8_t getCoolantTemp(uint8_t AA) {
     if (AA <= 0x3D) {
       return map(AA, 0x01, 0x3D, -45, 0);       // -45…0°C
@@ -404,4 +366,3 @@ uint8_t getCoolantTemp(uint8_t AA) {
 
     return 130;                                 // out of range
 }
-
