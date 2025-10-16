@@ -1,5 +1,6 @@
 #include <SPI.h>
 #include "mcp_can.h"
+#include <Encoder.h>
 
 //CONTROL UNIT PIN
 #define FIS_WRITE_ENA 2
@@ -13,12 +14,34 @@
 const int SPI_CS_PIN = 10;   // CS
 const int CAN_INT_PIN = 9;   // INT
 MCP_CAN CAN(SPI_CS_PIN);
+bool toSetFilter;
+static bool isCanOk;
+unsigned long setId;
 
 //CLUSTERS ID
 #define SPEEDOMETR_ID 0x5A0
 #define COOLANT_TEMP_ID 0x288
 #define RPM_ID 0x280
 #define ABS_SPEED_ID 0x1A0
+#define NO_FOUND1_ID 0x488
+#define NO_FOUND2_ID 0x320
+#define NO_FOUND3_ID 0x50
+#define NO_FOUND4_ID 0x5D0
+#define NO_FOUND5_ID 0x420
+#define NO_FOUND6_ID 0x4A0
+
+const long canIDs[] = {
+  RPM_ID,
+  COOLANT_TEMP_ID,
+  ABS_SPEED_ID,
+  SPEEDOMETR_ID
+};
+
+Encoder encoder(41, 40);
+const int btnPin = 42;
+int position = 0;
+long oldEnc = 0;
+int maxEnc = 3;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -30,14 +53,12 @@ int FIS_WRITE_nl = 0;
 int FIS_WRITE_ENA_STATUS = 0;
 uint8_t FIS_WRITE_CRC = 0;
 
-uint8_t screen = 0;
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
 unsigned long delayTime = 10000;
 static unsigned long lastUpdate = 0;
 static bool paused = false;
-static bool isCanOk;
 
 uint16_t  rpm = 0;
 uint8_t coolantTemp = 0;
@@ -63,10 +84,12 @@ void setup() {
   digitalWrite(FIS_WRITE_CLK, HIGH);
   pinMode(FIS_WRITE_DATA, OUTPUT);
   digitalWrite(FIS_WRITE_DATA, HIGH);
-  Serial.begin(9600); //10400
+  //Serial.begin(9600);
+
+  pinMode(btnPin, INPUT_PULLUP);
 
   //INIT CAN
-  for (byte i = 0; i < 5; i++) {
+  for (byte i = 0; i < 3; i++) {
     isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
     if(isCanOk) {
       CAN.setMode(MCP_NORMAL);
@@ -80,22 +103,46 @@ void setup() {
   delay(1200);
 }
 
+//TODO change coding to +16
 void loop() {
+
+  long newEnc = encoder.read() / 4;  // 4 pulses per click
+  if (newEnc != oldEnc) {
+    int step = (newEnc > oldEnc) ? 1 : -1;
+    position += step;
+
+    if (position > maxEnc){
+      position = 1;
+    }
+    if (position < 1){
+      position = maxEnc;
+    }
+
+    toSetFilter = true;
+    setId = canIDs[position - 1];
+    oldEnc = newEnc;
+  }
+
   if (isCanOk && CAN.checkReceive() == CAN_MSGAVAIL) {
     unsigned long id;
     byte len = 0;
     byte buf[8];
 
+    if(toSetFilter){
+      CAN.init_Filt(0, 0, setId);
+      toSetFilter = false;
+    }
+
     CAN.readMsgBuf(&id, &len, buf);
 
     switch (id) {
+      case RPM_ID: {
+        rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
+        break;
+      }
       case COOLANT_TEMP_ID: {
         uint8_t AA = buf[1];
         coolantTemp = getCoolantTemp(AA);
-        break;
-      }
-      case RPM_ID: {
-        rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
         break;
       }
       case ABS_SPEED_ID: {
@@ -121,36 +168,30 @@ void loop() {
 
         break;
       }
+      default:
+        return;
     }
   }
 
-  switch (screen) {
+  switch (position) {
     case 0:
-      FIS_WRITE_line1 = "WELCOME";
-      FIS_WRITE_line2 = "SIARHEI";
+      FIS_WRITE_line1 = centerString8("WELCOME");
+      FIS_WRITE_line2 = centerString8("SIARHEI");
 
       if (smallStringCount >= 10000/refreshClusterTime){
-        screen++;
         smallStringCount = 0;
+        position++;
       }
       break;
     case 1:
-      FIS_WRITE_line1 = "jjjjjjjj" +
-        centerString8("RPM") +
-        centerString8("COOLANT") +
-        "jjjjjjjj";
-
-      FIS_WRITE_line2 = "jjjjjjjj" +
-        centerString8(String(rpm)) +
-        centerString8(String(coolantTemp)+ "kC") +
-        "jjjjjjjj";
-
-      if (!reached100 && absSpeed_kmh < 1.0 && rpm > 4000){
-        screen++;
-      }
-
+      FIS_WRITE_line1 = centerString8("RPM");
+      FIS_WRITE_line2 = centerString8(String(rpm));
       break;
     case 2:
+      FIS_WRITE_line1 = centerString8("COOLANT");
+      FIS_WRITE_line2 = centerString8(String(coolantTemp)+ "kC");
+      break;
+    case 3:
       FIS_WRITE_line1 = centerString8(String(accelTime)+ "S");
       FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5))+ "KM/H");
 
@@ -159,14 +200,12 @@ void loop() {
           reached100 = false;
           accelTime = 0;
           startTime = 0;
-          screen--;
         }
       }
       else {
         if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
           accelTime = 0;
           startTime = 0;
-          screen--;
         }
       }
 
