@@ -33,11 +33,7 @@ uint8_t FIS_WRITE_CRC = 0;
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
-unsigned long delayTime = 10000;
-static unsigned long lastUpdate = 0;
-static bool paused = false;
-
-uint16_t  rpm = 0;
+uint16_t rpm = 0;
 uint8_t coolantTemp = 0;
 float absSpeed_kmh = 0;
 float lastSpeed = 0;
@@ -54,6 +50,7 @@ void FIS_WRITE_stopENA();
 //END WRITE TO CLUSTER
 
 void setup() {
+
   //WRITE TO CLUSTER
   pinMode(FIS_WRITE_ENA, OUTPUT);
   digitalWrite(FIS_WRITE_ENA, LOW);
@@ -61,9 +58,11 @@ void setup() {
   digitalWrite(FIS_WRITE_CLK, HIGH);
   pinMode(FIS_WRITE_DATA, OUTPUT);
   digitalWrite(FIS_WRITE_DATA, HIGH);
-  //Serial.begin(9600);
+  Serial.begin(9600);
 
   pinMode(ENC_BTN_PIN, INPUT_PULLUP);
+
+  return;
 
   //INIT CAN
   for (byte i = 0; i < 3; i++) {
@@ -204,13 +203,11 @@ void loop() {
         }
       }
 
-      if (!paused) {
-        if (FIS_WRITE_rotary_position_line1 < FIS_WRITE_line1_length) {
-          FIS_WRITE_rotary_position_line1++;
-        }
-        else {
-          FIS_WRITE_rotary_position_line1 = 0;
-        }
+      if (FIS_WRITE_rotary_position_line1 < FIS_WRITE_line1_length) {
+        FIS_WRITE_rotary_position_line1++;
+      }
+      else {
+        FIS_WRITE_rotary_position_line1 = 0;
       }
     }
     else {
@@ -224,28 +221,11 @@ void loop() {
         }
       }
 
-      if (!paused) {
-        if (FIS_WRITE_rotary_position_line2 < FIS_WRITE_line2_length) {
-          FIS_WRITE_rotary_position_line2++;
-        }
-        else {
-          FIS_WRITE_rotary_position_line2 = 0;
-        }
-
-        // if went 8 symbols — run pause
-        if ((FIS_WRITE_rotary_position_line2 % 8 == 0) &&
-            FIS_WRITE_rotary_position_line2 > 0 &&
-            FIS_WRITE_rotary_position_line2 < FIS_WRITE_line2_length - 8) 
-        {
-            paused = true;
-            lastUpdate = millis();
-        }
+      if (FIS_WRITE_rotary_position_line2 < FIS_WRITE_line2_length) {
+        FIS_WRITE_rotary_position_line2++;
       }
       else {
-        // wait
-        if (millis() - lastUpdate >= delayTime) {
-          paused = false;
-        }
+        FIS_WRITE_rotary_position_line2 = 0;
       }
     }
     else {
@@ -263,8 +243,10 @@ void loop() {
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
-  //Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
-  //Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
+  Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
+  Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
+
+return;
 
   int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
   int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
