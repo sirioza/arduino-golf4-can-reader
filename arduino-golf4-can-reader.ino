@@ -51,6 +51,8 @@ void FIS_WRITE_stopENA();
 
 void setup() {
 
+  Serial.begin(9600);
+
   //WRITE TO CLUSTER
   pinMode(FIS_WRITE_ENA, OUTPUT);
   digitalWrite(FIS_WRITE_ENA, LOW);
@@ -58,11 +60,9 @@ void setup() {
   digitalWrite(FIS_WRITE_CLK, HIGH);
   pinMode(FIS_WRITE_DATA, OUTPUT);
   digitalWrite(FIS_WRITE_DATA, HIGH);
-  Serial.begin(9600);
-
   pinMode(ENC_BTN_PIN, INPUT_PULLUP);
 
-  return;
+  delay(1200); // time to set Serial before Can
 
   //INIT CAN
   for (byte i = 0; i < 3; i++) {
@@ -75,8 +75,6 @@ void setup() {
       delay(1000);
     }
   }
-
-  delay(1200);
 }
 
 //TODO change coding to +16
