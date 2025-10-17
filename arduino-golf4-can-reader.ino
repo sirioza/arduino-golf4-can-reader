@@ -12,13 +12,14 @@ const long canIDs[] = {
   RPM_ID,
   COOLANT_TEMP_ID,
   ABS_SPEED_ID,
-  SPEEDOMETR_ID
+  ABS_SPEED_ID,
+  ABS_SPEED_ID
 };
 
 Encoder encoder(ENCODER_PIN1, ENCODER_PIN2);
-int position = 0;
-long oldEnc = 0;
-int maxEnc = 3;
+int8_t position = 0;
+int8_t oldEnc = 0;
+uint8_t maxEnc;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -34,12 +35,13 @@ uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
 uint16_t rpm = 0;
-uint8_t coolantTemp = 0;
+int8_t coolantTemp = 0;
 float absSpeed_kmh = 0;
 float lastSpeed = 0;
 float accelTime = 0;
 float holdUntil = 0;
-bool reached100 = false;
+bool reachedSpeed = false;
+float speedRange = 100.0;
 static uint32_t startTime = 0;
 
 //WRITE TO CLUSTER
@@ -62,8 +64,11 @@ void setup() {
   digitalWrite(FIS_WRITE_DATA, HIGH);
   pinMode(ENC_BTN_PIN, INPUT_PULLUP);
 
+  maxEnc = sizeof(canIDs) / sizeof(canIDs[0]);
+
   delay(1200); // time to set Serial before Can
 
+return;
   //INIT CAN
   for (byte i = 0; i < 3; i++) {
     isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
@@ -122,20 +127,20 @@ void loop() {
       case ABS_SPEED_ID: {
         absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
 
-        if (!reached100) {
+        if (!reachedSpeed) {
           if (absSpeed_kmh < 1.0 && rpm > 4000) {
             startTime = millis();
           }
 
-          if (absSpeed_kmh >= 100.0 && startTime > 0) {
+          if (absSpeed_kmh >= speedRange && startTime > 0) {
             accelTime = (millis() - startTime) / 1000.0;
-            reached100 = true;
+            reachedSpeed = true;
             holdUntil = millis() + 5000;
           }
         }
 
-        if (absSpeed_kmh < 1.0 && reached100) {
-          reached100 = false;
+        if (absSpeed_kmh < 1.0 && reachedSpeed) {
+          reachedSpeed = false;
           accelTime = 0;
           startTime = 0;
         }
@@ -143,7 +148,7 @@ void loop() {
         break;
       }
       default:
-        return;
+        break;
     }
   }
 
@@ -166,12 +171,13 @@ void loop() {
       FIS_WRITE_line2 = centerString8(String(coolantTemp)+ "kC");
       break;
     case 3:
-      FIS_WRITE_line1 = centerString8(String(accelTime)+ "S");
-      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5))+ "KM/H");
+      FIS_WRITE_line1 = centerString8("0-100KMH");
+      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
+      speedRange = 100.0f;
 
-      if (reached100) {
+      if (reachedSpeed) {
         if (millis() > holdUntil) {
-          reached100 = false;
+          reachedSpeed = false;
           accelTime = 0;
           startTime = 0;
         }
@@ -182,7 +188,29 @@ void loop() {
           startTime = 0;
         }
       }
+      break;
+    case 4:
+      FIS_WRITE_line1 = centerString8("0-60KMH");
+      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
+      speedRange = 60.0f;
 
+      if (reachedSpeed) {
+        if (millis() > holdUntil) {
+          reachedSpeed = false;
+          accelTime = 0;
+          startTime = 0;
+        }
+      }
+      else {
+        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
+          accelTime = 0;
+          startTime = 0;
+        }
+      }
+      break;
+    case 5:
+      FIS_WRITE_line1 = centerString8("SPEED");
+      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5))+ "KM/H");
       break;
   }
 
