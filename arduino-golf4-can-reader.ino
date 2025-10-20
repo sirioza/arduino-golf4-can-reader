@@ -28,7 +28,7 @@ float lastSpeed = 0;
 float accelTime = 0;
 float holdUntil = 0;
 bool reachedSpeed = false;
-float speedRange = 100.0f;
+float speedRange = 100.0;
 static uint32_t startTime = 0;
 
 const int points = 53;
@@ -48,7 +48,9 @@ float torqueTable[points] = {
   125,118,110,102,95,88,82,78,75,72,
   70,68,65
 };
+const float HP_CONV = 1.34102209;    // kW -> metric hp
 float torqueNm = 0;
+float lastTorqueNm = 0;
 float powerKW = 0;
 float powerHP = 0;
 
@@ -107,11 +109,11 @@ void loop() {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
 
-        if(position == 6){
+        if (position == 6){
           float torqueNm = getTorque(rpm);
           float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
           float powerKW = torqueNm * omega / 1000.0;
-          float powerHP = powerKW * 1.34102209;
+          float powerHP = powerKW * HP_CONV;
         }
 
         break;
@@ -124,7 +126,7 @@ void loop() {
       case ABS_SPEED_ID: {
         absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
 
-        if(position != 3 && position != 4){
+        if (position != 3 && position != 4){
           break;
         }
 
@@ -214,8 +216,8 @@ void loop() {
       FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H");
       break;
     case 6:
-      FIS_WRITE_line1 = centerString8(String(torqueNm) + "NM");
-      FIS_WRITE_line2 = centerString8(String(powerHP) + "HP");
+      FIS_WRITE_line1 = centerString8(String((uint8_t)(powerHP + 0.5)) + "HP");
+      FIS_WRITE_line2 = centerString8(String((uint8_t)(torqueNm + 0.5)) + "NM");
       break;
   }
 
@@ -406,10 +408,10 @@ float getTorque(float rpm) {
   }
 
   for (int i = 0; i < points - 1; i++) {
-    if (rpm >= rpmTable[i] && rpm <= rpmTable[i+1]) {
-      float t = (rpm - rpmTable[i]) / (rpmTable[i+1] - rpmTable[i]);
+    if (rpm >= rpmTable[i] && rpm <= rpmTable[i + 1]) {
+      float t = (rpm - rpmTable[i]) / (rpmTable[i + 1] - rpmTable[i]);
 
-      return torqueTable[i] + t * (torqueTable[i+1] - torqueTable[i]);
+      return torqueTable[i] + t * (torqueTable[i + 1] - torqueTable[i]);
     }
   }
 
