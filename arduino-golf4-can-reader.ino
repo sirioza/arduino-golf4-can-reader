@@ -1,25 +1,16 @@
 #include <SPI.h>
-#include "mcp_can.h"
+#include "can_handler.h"
 #include <Encoder.h>
 #include <config.h>
 
-MCP_CAN CAN(SPI_CS_PIN);
-bool toSetFilter;
-static bool isCanOk;
-unsigned long setId;
-
-const long canIDs[] = {
-  RPM_ID,
-  COOLANT_TEMP_ID,
-  ABS_SPEED_ID,
-  ABS_SPEED_ID,
-  ABS_SPEED_ID
-};
+unsigned long clusterId;
+const long clusterIDs[] = {RPM_ID, COOLANT_TEMP_ID, ABS_SPEED_ID, ABS_SPEED_ID, ABS_SPEED_ID};
+CAN_FilterState canState = { 0, true };
 
 Encoder encoder(ENCODER_PIN1, ENCODER_PIN2);
 int8_t position = 0;
 int8_t oldEnc = 0;
-uint8_t maxEnc;
+const uint8_t maxEnc = sizeof(clusterIDs) / sizeof(clusterIDs[0]);
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -41,7 +32,7 @@ float lastSpeed = 0;
 float accelTime = 0;
 float holdUntil = 0;
 bool reachedSpeed = false;
-float speedRange = 100.0;
+float speedRange = 100.0f;
 static uint32_t startTime = 0;
 
 //WRITE TO CLUSTER
@@ -64,22 +55,9 @@ void setup() {
   digitalWrite(FIS_WRITE_DATA, HIGH);
   pinMode(ENC_BTN_PIN, INPUT_PULLUP);
 
-  maxEnc = sizeof(canIDs) / sizeof(canIDs[0]);
-
   delay(1200); // time to set Serial before Can
 
-return;
-  //INIT CAN
-  for (byte i = 0; i < 3; i++) {
-    isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
-    if(isCanOk) {
-      CAN.setMode(MCP_NORMAL);
-      break;
-    }
-    else {
-      delay(1000);
-    }
-  }
+  CAN_Init(3);
 }
 
 //TODO change coding to +16
@@ -97,22 +75,18 @@ void loop() {
       position = maxEnc;
     }
 
-    toSetFilter = true;
-    setId = canIDs[position - 1];
+    speedRange = position == 3 ? 100.0f : 60.0f;
+    canState.isFilterSet = true;
+    canState.filter = clusterIDs[position - 1];
     oldEnc = newEnc;
   }
 
-  if (isCanOk && CAN.checkReceive() == CAN_MSGAVAIL) {
+  if (CAN_HasMessage()) {
     unsigned long id;
     byte len = 0;
     byte buf[8];
 
-    if(toSetFilter){
-      CAN.init_Filt(0, 0, setId);
-      toSetFilter = false;
-    }
-
-    CAN.readMsgBuf(&id, &len, buf);
+    CAN_ReadMessage(id, len, buf, canState);
 
     switch (id) {
       case RPM_ID: {
@@ -171,29 +145,25 @@ void loop() {
       FIS_WRITE_line2 = centerString8(String(coolantTemp)+ "kC");
       break;
     case 3:
+      if (reachedSpeed) {
+        if (millis() > holdUntil) {
+          reachedSpeed = false;
+          accelTime = 0;
+          startTime = 0;
+        }
+      }
+      else {
+        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
+          accelTime = 0;
+          startTime = 0;
+        }
+      }
+
       FIS_WRITE_line1 = centerString8("0-100KMH");
       FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
-      speedRange = 100.0f;
 
-      if (reachedSpeed) {
-        if (millis() > holdUntil) {
-          reachedSpeed = false;
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
-      else {
-        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
       break;
     case 4:
-      FIS_WRITE_line1 = centerString8("0-60KMH");
-      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
-      speedRange = 60.0f;
-
       if (reachedSpeed) {
         if (millis() > holdUntil) {
           reachedSpeed = false;
@@ -207,6 +177,10 @@ void loop() {
           startTime = 0;
         }
       }
+
+      FIS_WRITE_line1 = centerString8("0-60KMH");
+      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
+
       break;
     case 5:
       FIS_WRITE_line1 = centerString8("SPEED");
