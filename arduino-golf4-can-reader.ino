@@ -3,14 +3,10 @@
 #include <Encoder.h>
 #include <config.h>
 
-unsigned long clusterId;
-const long clusterIDs[] = {RPM_ID, COOLANT_TEMP_ID, ABS_SPEED_ID, ABS_SPEED_ID, ABS_SPEED_ID};
-CAN_FilterState canState = { 0, true };
-
 Encoder encoder(ENCODER_PIN1, ENCODER_PIN2);
 int8_t position = 0;
 int8_t oldEnc = 0;
-const uint8_t maxEnc = sizeof(clusterIDs) / sizeof(clusterIDs[0]);
+const uint8_t maxEnc = 6;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -34,6 +30,27 @@ float holdUntil = 0;
 bool reachedSpeed = false;
 float speedRange = 100.0f;
 static uint32_t startTime = 0;
+
+const int points = 53;
+float rpmTable[points] = {
+  800,900,1000,1100,1200,1300,1400,1500,1600,1700,
+  1800,1900,2000,2100,2200,2300,2400,2500,2600,2700,
+  2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,
+  3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,
+  4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,
+  5800,5900,6000
+};
+float torqueTable[points] = {
+  95,105,115,125,135,145,155,162,167,170,
+  172,173,173.5,174,174.5,174.5,174,174,174,174,
+  174,174,174,174,174,174,174,174,174,173.5,
+  173,172,170,168,165,160,155,148,140,132,
+  125,118,110,102,95,88,82,78,75,72,
+  70,68,65
+};
+float torqueNm = 0;
+float powerKW = 0;
+float powerHP = 0;
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
@@ -76,8 +93,6 @@ void loop() {
     }
 
     speedRange = position == 3 ? 100.0f : 60.0f;
-    canState.isFilterSet = true;
-    canState.filter = clusterIDs[position - 1];
     oldEnc = newEnc;
   }
 
@@ -86,11 +101,19 @@ void loop() {
     byte len = 0;
     byte buf[8];
 
-    CAN_ReadMessage(id, len, buf, canState);
+    CAN_ReadMessage(id, len, buf);
 
     switch (id) {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
+
+        if(position == 6){
+          float torqueNm = getTorque(rpm);
+          float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
+          float powerKW = torqueNm * omega / 1000.0;
+          float powerHP = powerKW * 1.34102209;
+        }
+
         break;
       }
       case COOLANT_TEMP_ID: {
@@ -100,6 +123,10 @@ void loop() {
       }
       case ABS_SPEED_ID: {
         absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
+
+        if(position != 3 && position != 4){
+          break;
+        }
 
         if (!reachedSpeed) {
           if (absSpeed_kmh < 1.0 && rpm > 4000) {
@@ -142,7 +169,7 @@ void loop() {
       break;
     case 2:
       FIS_WRITE_line1 = centerString8("COOLANT");
-      FIS_WRITE_line2 = centerString8(String(coolantTemp)+ "kC");
+      FIS_WRITE_line2 = centerString8(String(coolantTemp) + "kC");
       break;
     case 3:
       if (reachedSpeed) {
@@ -160,7 +187,7 @@ void loop() {
       }
 
       FIS_WRITE_line1 = centerString8("0-100KMH");
-      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
+      FIS_WRITE_line2 = centerString8(String(accelTime) + "S");
 
       break;
     case 4:
@@ -179,12 +206,16 @@ void loop() {
       }
 
       FIS_WRITE_line1 = centerString8("0-60KMH");
-      FIS_WRITE_line2 = centerString8(String(accelTime)+ "S");
+      FIS_WRITE_line2 = centerString8(String(accelTime) + "S");
 
       break;
     case 5:
       FIS_WRITE_line1 = centerString8("SPEED");
-      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5))+ "KM/H");
+      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H");
+      break;
+    case 6:
+      FIS_WRITE_line1 = centerString8(String(torqueNm) + "NM");
+      FIS_WRITE_line2 = centerString8(String(powerHP) + "HP");
       break;
   }
 
@@ -363,4 +394,24 @@ uint8_t getCoolantTemp(uint8_t AA) {
     }
 
     return 130;                                 // out of range
+}
+
+float getTorque(float rpm) {
+  if (rpm <= rpmTable[0]){
+    return torqueTable[0];
+  }
+
+  if (rpm >= rpmTable[points-1]){
+    return torqueTable[points-1];
+  }
+
+  for (int i = 0; i < points - 1; i++) {
+    if (rpm >= rpmTable[i] && rpm <= rpmTable[i+1]) {
+      float t = (rpm - rpmTable[i]) / (rpmTable[i+1] - rpmTable[i]);
+
+      return torqueTable[i] + t * (torqueTable[i+1] - torqueTable[i]);
+    }
+  }
+
+  return torqueTable[points-1];
 }

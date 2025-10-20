@@ -16,11 +16,6 @@ extern MCP_CAN CAN;
 #define NO_FOUND5_ID 0x420
 #define NO_FOUND6_ID 0x4A0
 
-struct CAN_FilterState {
-    unsigned long filter;
-    bool isFilterSet;
-};
-
 void CAN_Init(byte attempts);
 bool CAN_HasMessage();
-void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf, CAN_FilterState &state);
+void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf);

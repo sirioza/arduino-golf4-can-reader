@@ -21,11 +21,6 @@ bool CAN_HasMessage() {
     return isCanOk && CAN.checkReceive() == CAN_MSGAVAIL;
 }
 
-void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf, CAN_FilterState &state) {
-    if (!state.isFilterSet) {
-        CAN.init_Filt(0, 0, state.filter);
-        state.isFilterSet = true;
-    }
-
+void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf) {
     CAN.readMsgBuf(&id, &len, buf);
 }
