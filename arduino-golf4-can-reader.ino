@@ -26,9 +26,8 @@ int8_t coolantTemp = 0;
 float absSpeed_kmh = 0;
 float lastSpeed = 0;
 float accelTime = 0;
-float holdUntil = 0;
 bool reachedSpeed = false;
-float speedRange = 100.0;
+float speedRange_kmh = 100;
 static uint32_t startTime = 0;
 
 const int points = 53;
@@ -94,7 +93,7 @@ void loop() {
       position = maxEnc;
     }
 
-    speedRange = position == 3 ? 100.0f : 60.0f;
+    speedRange_kmh = position == 3 ? 100.0f : 60.0f;
     oldEnc = newEnc;
   }
 
@@ -131,18 +130,17 @@ void loop() {
         }
 
         if (!reachedSpeed) {
-          if (absSpeed_kmh < 1.0 && rpm > 4000) {
+          if (absSpeed_kmh < 1.0) {
             startTime = millis();
           }
 
-          if (absSpeed_kmh >= speedRange && startTime > 0) {
+          if (absSpeed_kmh >= speedRange_kmh && startTime > 0) {
             accelTime = (millis() - startTime) / 1000.0;
             reachedSpeed = true;
-            holdUntil = millis() + 5000;
           }
         }
 
-        if (absSpeed_kmh < 1.0 && reachedSpeed) {
+        if (absSpeed_kmh < 1.0f && reachedSpeed) {
           reachedSpeed = false;
           accelTime = 0;
           startTime = 0;
@@ -174,42 +172,9 @@ void loop() {
       FIS_WRITE_line2 = centerString8(String(coolantTemp) + "kC");
       break;
     case 3:
-      if (reachedSpeed) {
-        if (millis() > holdUntil) {
-          reachedSpeed = false;
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
-      else {
-        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
-
-      FIS_WRITE_line1 = centerString8("0-100KMH");
-      FIS_WRITE_line2 = centerString8(String(accelTime) + "S");
-
-      break;
     case 4:
-      if (reachedSpeed) {
-        if (millis() > holdUntil) {
-          reachedSpeed = false;
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
-      else {
-        if (absSpeed_kmh < 1.0f || millis() - startTime > 30000) {
-          accelTime = 0;
-          startTime = 0;
-        }
-      }
-
-      FIS_WRITE_line1 = centerString8("0-60KMH");
+      FIS_WRITE_line1 = centerString8("0-" + String(position == 3 ? "100" : "60") + "KMH");
       FIS_WRITE_line2 = centerString8(String(accelTime) + "S");
-
       break;
     case 5:
       FIS_WRITE_line1 = centerString8("SPEED");
