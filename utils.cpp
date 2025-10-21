@@ -18,7 +18,7 @@ float torqueTable[points] = {
   70,68,65
 };
 
-uint8_t getCoolantTemp(uint8_t AA) {
+int16_t getCoolantTemp(uint8_t AA) {
     if (AA <= 0x3D) {
       return map(AA, 0x01, 0x3D, -45, 0);       // -45…0°C
     }
@@ -41,7 +41,7 @@ float getTorque(float rpm) {
     return torqueTable[points-1];
   }
 
-  for (int i = 0; i < points - 1; i++) {
+  for (int8_t i = 0; i < points - 1; i++) {
     if (rpm >= rpmTable[i] && rpm <= rpmTable[i + 1]) {
       float t = (rpm - rpmTable[i]) / (rpmTable[i + 1] - rpmTable[i]);
 

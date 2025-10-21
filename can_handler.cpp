@@ -4,7 +4,7 @@
 
 MCP_CAN CAN(SPI_CS_PIN);
 bool isCanOk = false;
-unsigned long cluster = 0;
+uint32_t cluster = 0;
 
 void CAN_Init(byte attempts) {
     for (byte i = 0; i < attempts; i++) {
@@ -21,6 +21,6 @@ bool CAN_HasMessage() {
     return isCanOk && CAN.checkReceive() == CAN_MSGAVAIL;
 }
 
-void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf) {
+void CAN_ReadMessage(uint32_t &id, byte &len, byte *buf) {
     CAN.readMsgBuf(&id, &len, buf);
 }

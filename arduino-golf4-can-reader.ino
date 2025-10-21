@@ -5,25 +5,23 @@
 #include <utils.h>
 
 Encoder encoder(ENCODER_PIN1, ENCODER_PIN2);
-int8_t position = 0;
-int8_t oldEnc = 0;
-const uint8_t maxEnc = 6;
+uint8_t position = 0;
+int32_t oldEnc = 0;
+const uint8_t MAX_ENC = 6;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
-long FIS_WRITE_rotary_position_line1 = -8;
-long FIS_WRITE_rotary_position_line2 = -8;
-int FIS_WRITE_line = 1;
-long FIS_WRITE_last_refresh = 0;
-int FIS_WRITE_nl = 0;
-int FIS_WRITE_ENA_STATUS = 0;
+int32_t FIS_WRITE_rotary_position_line1 = -8;
+int32_t FIS_WRITE_rotary_position_line2 = -8;
+uint8_t FIS_WRITE_line = 1;
+uint32_t FIS_WRITE_last_refresh = 0;
 uint8_t FIS_WRITE_CRC = 0;
 
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
 uint16_t rpm = 0;
-int8_t coolantTemp = 0;
+int16_t coolantTemp = 0;
 float absSpeed_kmh = 0;
 float lastSpeed = 0;
 float accelTime = 0;
@@ -39,7 +37,7 @@ float powerHP = 0;
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
-void FIS_WRITE_sendByte(int Bit);
+void FIS_WRITE_sendByte(int8_t byte);
 void FIS_WRITE_startENA();
 void FIS_WRITE_stopENA();
 //END WRITE TO CLUSTER
@@ -65,16 +63,16 @@ void setup() {
 //TODO change coding to +16
 void loop() {
 
-  long newEnc = encoder.read() / 4;  // 4 pulses per click
+  int32_t newEnc = encoder.read() / 4;  // 4 pulses per click
   if (newEnc != oldEnc) {
-    int step = (newEnc > oldEnc) ? 1 : -1;
+    int8_t step = (newEnc > oldEnc) ? 1 : -1;
     position += step;
 
-    if (position > maxEnc){
+    if (position > MAX_ENC){
       position = 1;
     }
     if (position < 1){
-      position = maxEnc;
+      position = MAX_ENC;
     }
 
     speedRange_kmh = position == 3 ? 100.0f : 60.0f;
@@ -82,7 +80,7 @@ void loop() {
   }
 
   if (CAN_HasMessage()) {
-    unsigned long id;
+    uint32_t id;
     byte len = 0;
     byte buf[8];
 
@@ -170,8 +168,8 @@ void loop() {
       break;
   }
 
-  int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
-  int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
+  uint8_t FIS_WRITE_line1_length = FIS_WRITE_line1.length();
+  uint8_t FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   String FIS_WRITE_sendline1 = "        ";
   String FIS_WRITE_sendline2 = "        ";
 
@@ -179,7 +177,7 @@ void loop() {
   if (millis() - FIS_WRITE_last_refresh > refreshClusterTime && (FIS_WRITE_line1_length > 0 || FIS_WRITE_line2_length > 0)) {
     if (FIS_WRITE_line1_length > 8) {
 
-      for (int i = 0; i < 8; i++) {
+      for (int8_t i = 0; i < 8; i++) {
         if (FIS_WRITE_rotary_position_line1 + i >= 0 && (FIS_WRITE_rotary_position_line1 + i) < FIS_WRITE_line1_length) {
           FIS_WRITE_sendline1[i] = FIS_WRITE_line1[FIS_WRITE_rotary_position_line1 + i];
         }
@@ -197,7 +195,7 @@ void loop() {
     }
 
     if (FIS_WRITE_line2_length > 8) {
-      for (int i = 0; i < 8; i++) {
+      for (int8_t i = 0; i < 8; i++) {
         if (FIS_WRITE_rotary_position_line2 + i >= 0 && (FIS_WRITE_rotary_position_line2 + i) < FIS_WRITE_line2_length) {
           FIS_WRITE_sendline2[i] = FIS_WRITE_line2[FIS_WRITE_rotary_position_line2 + i];
         }
@@ -228,17 +226,15 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
   Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
 
-return;
-
-  int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
-  int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
+  uint8_t FIS_WRITE_line1_length = FIS_WRITE_line1.length();
+  uint8_t FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   if (FIS_WRITE_line1_length <= 8) {
-    for (int i = 0; i < (8 - FIS_WRITE_line1_length); i++) {
+    for (int8_t i = 0; i < (8 - FIS_WRITE_line1_length); i++) {
       FIS_WRITE_line1 += " ";
     }
   }
   if (FIS_WRITE_line2_length <= 8) {
-    for (int i = 0; i < (8 - FIS_WRITE_line2_length); i++) {
+    for (int8_t i = 0; i < (8 - FIS_WRITE_line2_length); i++) {
       FIS_WRITE_line2 += " ";
     }
   }
@@ -247,13 +243,13 @@ return;
   FIS_WRITE_startENA();
   FIS_WRITE_sendByte(FIS_WRITE_START);
 
-  for (int i = 0; i <= 7; i++)
+  for (int8_t i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line1[i]);
     FIS_WRITE_CRC += FIS_WRITE_line1[i];
   }
 
-  for (int i = 0; i <= 7; i++)
+  for (int8_t i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line2[i]);
     FIS_WRITE_CRC += FIS_WRITE_line2[i];
@@ -264,15 +260,15 @@ return;
   FIS_WRITE_stopENA();
 }
 
-void FIS_WRITE_sendByte(int Byte) {
-  static int iResult[8];
-  for (int i = 0; i <= 7; i++)
+void FIS_WRITE_sendByte(int8_t byte) {
+  static int8_t iResult[8];
+  for (int8_t i = 0; i <= 7; i++)
   {
-    iResult[i] = Byte % 2;
-    Byte = Byte / 2;
+    iResult[i] = byte % 2;
+    byte = byte / 2;
   }
 
-  for (int i = 7; i >= 0; i--) {
+  for (int8_t i = 7; i >= 0; i--) {
     switch (iResult[i]) {
       case 1: digitalWrite(FIS_WRITE_DATA, HIGH);
         break;
@@ -300,13 +296,13 @@ void FIS_WRITE_stopENA() {
 
 String centerString8(const String& input) {
     String result = "        "; // 8 whitespace
-    int len = input.length();
+    int8_t len = input.length();
     if (len >= 8) {
         result = input.substring(0, 8);
     }
     else {
-      int totalPadding = 8 - len;
-      int paddingLeft, paddingRight;
+      int8_t totalPadding = 8 - len;
+      int8_t paddingLeft, paddingRight;
 
       if (len % 2 == 0) {
           paddingLeft = totalPadding / 2;
@@ -316,16 +312,16 @@ String centerString8(const String& input) {
           paddingRight = totalPadding - paddingLeft;
       }
 
-      int index = 0;
-      for (int i = 0; i < paddingLeft; i++){
+      int8_t index = 0;
+      for (int8_t i = 0; i < paddingLeft; i++){
         result[index++] = ' ';
       }
 
-      for (int i = 0; i < len; i++){
+      for (int8_t i = 0; i < len; i++){
         result[index++] = input[i];
       }
 
-      for (int i = 0; i < paddingRight; i++){
+      for (int8_t i = 0; i < paddingRight; i++){
         result[index++] = ' ';
       }
     }

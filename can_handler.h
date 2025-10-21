@@ -18,4 +18,4 @@ extern MCP_CAN CAN;
 
 void CAN_Init(byte attempts);
 bool CAN_HasMessage();
-void CAN_ReadMessage(unsigned long &id, byte &len, byte *buf);
+void CAN_ReadMessage(uint32_t &id, byte &len, byte *buf);
