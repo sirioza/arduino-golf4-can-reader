@@ -1,7 +1,7 @@
 #include <utils.h>
 
 const int points = 53;
-float rpmTable[points] = {
+uint16_t rpmTable[points] = {
   800,900,1000,1100,1200,1300,1400,1500,1600,1700,
   1800,1900,2000,2100,2200,2300,2400,2500,2600,2700,
   2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,
@@ -32,7 +32,7 @@ int16_t getCoolantTemp(uint8_t AA) {
     return 130;                                 // out of range
 }
 
-float getTorque(float rpm) {
+float getTorque(uint16_t  rpm) {
   if (rpm <= rpmTable[0]){
     return torqueTable[0];
   }
@@ -43,9 +43,9 @@ float getTorque(float rpm) {
 
   for (int8_t i = 0; i < points - 1; i++) {
     if (rpm >= rpmTable[i] && rpm <= rpmTable[i + 1]) {
-      float t = (rpm - rpmTable[i]) / (rpmTable[i + 1] - rpmTable[i]);
+      float torque = (rpm - rpmTable[i]) / (rpmTable[i + 1] - rpmTable[i]);
 
-      return torqueTable[i] + t * (torqueTable[i + 1] - torqueTable[i]);
+      return torqueTable[i] + torque * (torqueTable[i + 1] - torqueTable[i]);
     }
   }
 
