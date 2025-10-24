@@ -1,14 +1,8 @@
 #include <SPI.h>
 #include "can_handler.h"
-#include <Encoder.h>
-#include <config.h>
-#include <vehicle_utils.h>
-#include <string_utils.h>
-
-Encoder encoder(ENCODER_PIN1, ENCODER_PIN2);
-uint8_t position = 0;
-int32_t oldEnc = 0;
-const uint8_t MAX_ENC = 6;
+#include "config.h"
+#include "vehicle_utils.h"
+#include "string_utils.h"
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -54,30 +48,44 @@ void setup() {
   digitalWrite(FIS_WRITE_CLK, HIGH);
   pinMode(FIS_WRITE_DATA, OUTPUT);
   digitalWrite(FIS_WRITE_DATA, HIGH);
-  pinMode(ENC_BTN_PIN, INPUT_PULLUP);
+
+  pinMode(ENC_BTN_PIN_UP, INPUT_PULLUP);
+  pinMode(ENC_BTN_PIN_DOWN, INPUT_PULLUP);
 
   delay(1200); // time to set Serial before Can
 
   CAN_Init(3);
 }
 
-//TODO change coding to +16
+const uint16_t holdDelay = 3000;
+uint32_t lastSwitchTime = 0;
+uint8_t position = 0;
+const uint8_t MAX_ENC = 6;
+
 void loop() {
 
-  int32_t newEnc = encoder.read() / 4;  // 4 pulses per click
-  if (newEnc != oldEnc) {
-    int8_t step = (newEnc > oldEnc) ? 1 : -1;
-    position += step;
+  bool btnUp = digitalRead(ENC_BTN_PIN_UP) == LOW;
+  bool btnDown = digitalRead(ENC_BTN_PIN_DOWN) == LOW;
 
-    if (position > MAX_ENC){
-      position = 1;
-    }
-    if (position < 1){
-      position = MAX_ENC;
+  uint32_t now = millis();
+
+  if ((btnUp || btnDown) && now - lastSwitchTime > holdDelay) {
+    if (btnUp) {
+      position++;
+      if (position > MAX_ENC){
+         position = 1;
+      }
     }
 
+    if (btnDown) {
+      position--;
+      if (position < 1){
+         position = MAX_ENC;
+      }
+    }
+
+    lastSwitchTime = now;
     speedRange_kmh = position == 3 ? 100.0f : 60.0f;
-    oldEnc = newEnc;
   }
 
   if (CAN_HasMessage()) {

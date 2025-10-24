@@ -1,6 +1,6 @@
 #include "can_handler.h"
 #include <SPI.h>
-#include <config.h>
+#include "config.h"
 
 MCP_CAN CAN(SPI_CS_PIN);
 bool isCanOk = false;
