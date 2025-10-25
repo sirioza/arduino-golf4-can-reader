@@ -1,9 +1,12 @@
 #include <SPI.h>
+#include "mcp_can.h"
 #include <Encoder.h>
-#include "can_handler.h"
 #include "config.h"
 #include "vehicle_utils.h"
 #include "string_utils.h"
+
+MCP_CAN CAN(SPI_CS_PIN);
+bool isCanOk = false;
 
 Encoder encoder(ENCODER_CLK, ENCODER_DT);
 uint8_t position = 0;
@@ -21,7 +24,6 @@ uint8_t FIS_WRITE_CRC = 0;
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
-bool isCanOk = false;
 uint16_t rpm = 0;
 int16_t coolantTemp = 0;
 float absSpeed_kmh = 0;
@@ -45,7 +47,7 @@ void FIS_WRITE_stopENA();
 //END WRITE TO CLUSTER
 
 void setup() {
-  //Serial.begin(9600);
+  Serial.begin(9600);
 
   //WRITE TO CLUSTER
   pinMode(FIS_WRITE_ENA, OUTPUT);
@@ -57,7 +59,7 @@ void setup() {
 
   pinMode(ENCODER_CLK, INPUT_PULLUP);
   pinMode(ENCODER_DT, INPUT_PULLUP);
-  //pinMode(ENCODER_SW, INPUT_PULLUP);
+  //pinMode(ENC_BTN_SW, INPUT_PULLUP);
 
   delay(1200); // time to set Serial before Can
 
@@ -85,12 +87,14 @@ void loop() {
     oldEnc = newEnc;
   }
 
+  //int8_t reading = digitalRead(ENC_BTN_SW); //1, pressed = 0
+
   if (isCanOk && CAN.checkReceive() == CAN_MSGAVAIL) {
     unsigned long id;
     byte len = 0;
     byte buf[8];
-
     CAN.readMsgBuf(&id, &len, buf);
+
     switch (id) {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
@@ -249,14 +253,12 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   FIS_WRITE_startENA();
   FIS_WRITE_sendByte(FIS_WRITE_START);
 
-  for (int i = 0; i <= 7; i++)
-  {
+  for (int i = 0; i <= 7; i++) {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line1[i]);
     FIS_WRITE_CRC += FIS_WRITE_line1[i];
   }
 
-  for (int i = 0; i <= 7; i++)
-  {
+  for (int i = 0; i <= 7; i++) {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line2[i]);
     FIS_WRITE_CRC += FIS_WRITE_line2[i];
   }
@@ -268,8 +270,7 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
 
 void FIS_WRITE_sendByte(int Byte) {
   static int iResult[8];
-  for (int i = 0; i <= 7; i++)
-  {
+  for (int i = 0; i <= 7; i++) {
     iResult[i] = Byte % 2;
     Byte = Byte / 2;
   }
@@ -291,17 +292,9 @@ void FIS_WRITE_sendByte(int Byte) {
 void FIS_WRITE_startENA() {
   if (!digitalRead(FIS_WRITE_ENA)) {
     digitalWrite(FIS_WRITE_ENA, HIGH);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    //  digitalWrite(FIS_WRITE_ENA,LOW);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    //  digitalWrite(FIS_WRITE_ENA,HIGH);
-    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
-    // FIS_WRITE_ENA_STATUS=1;
   }
 }
 
 void FIS_WRITE_stopENA() {
   digitalWrite(FIS_WRITE_ENA, LOW);
-  // FIS_WRITE_ENA_STATUS=0;
 }
-//
