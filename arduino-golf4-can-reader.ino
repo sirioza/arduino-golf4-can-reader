@@ -21,6 +21,7 @@ uint8_t FIS_WRITE_CRC = 0;
 uint16_t smallStringCount = 0;
 uint16_t refreshClusterTime = 300;
 
+bool isCanOk = false;
 uint16_t rpm = 0;
 int16_t coolantTemp = 0;
 float absSpeed_kmh = 0;
@@ -60,7 +61,16 @@ void setup() {
 
   delay(1200); // time to set Serial before Can
 
-  CAN_Init(3);
+  for (byte i = 0; i < 5; i++) {
+    isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
+    if(isCanOk) {
+      CAN.setMode(MCP_NORMAL);
+      break;
+    }
+    else {
+      delay(1000);
+    }
+  }
 }
 
 void loop() {
@@ -75,13 +85,12 @@ void loop() {
     oldEnc = newEnc;
   }
 
-  if (CAN_HasMessage()) {
-    uint32_t id;
+  if (isCanOk && CAN.checkReceive() == CAN_MSGAVAIL) {
+    unsigned long id;
     byte len = 0;
     byte buf[8];
 
-    CAN_ReadMessage(id, len, buf);
-
+    CAN.readMsgBuf(&id, &len, buf);
     switch (id) {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
@@ -164,8 +173,9 @@ void loop() {
       break;
   }
 
-  uint8_t FIS_WRITE_line1_length = FIS_WRITE_line1.length();
-  uint8_t FIS_WRITE_line2_length = FIS_WRITE_line2.length();
+  //refresh cluster each "refreshClusterTime"
+  int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
+  int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   String FIS_WRITE_sendline1 = "        ";
   String FIS_WRITE_sendline2 = "        ";
 
@@ -173,7 +183,7 @@ void loop() {
   if (millis() - FIS_WRITE_last_refresh > refreshClusterTime && (FIS_WRITE_line1_length > 0 || FIS_WRITE_line2_length > 0)) {
     if (FIS_WRITE_line1_length > 8) {
 
-      for (int8_t i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
         if (FIS_WRITE_rotary_position_line1 + i >= 0 && (FIS_WRITE_rotary_position_line1 + i) < FIS_WRITE_line1_length) {
           FIS_WRITE_sendline1[i] = FIS_WRITE_line1[FIS_WRITE_rotary_position_line1 + i];
         }
@@ -191,7 +201,7 @@ void loop() {
     }
 
     if (FIS_WRITE_line2_length > 8) {
-      for (int8_t i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++) {
         if (FIS_WRITE_rotary_position_line2 + i >= 0 && (FIS_WRITE_rotary_position_line2 + i) < FIS_WRITE_line2_length) {
           FIS_WRITE_sendline2[i] = FIS_WRITE_line2[FIS_WRITE_rotary_position_line2 + i];
         }
@@ -202,14 +212,14 @@ void loop() {
       }
       else {
         FIS_WRITE_rotary_position_line2 = 0;
-      }
+      } 
     }
     else {
       smallStringCount++;
       FIS_WRITE_sendline2 = FIS_WRITE_line2;
     }
 
-    //REFRESH
+    //Serial.println("refresh");
     FIS_WRITE_sendTEXT(FIS_WRITE_sendline1, FIS_WRITE_sendline2);
     FIS_WRITE_last_refresh = millis();
   }
@@ -222,15 +232,15 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   //Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
   //Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
 
-  uint8_t FIS_WRITE_line1_length = FIS_WRITE_line1.length();
-  uint8_t FIS_WRITE_line2_length = FIS_WRITE_line2.length();
+  int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
+  int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   if (FIS_WRITE_line1_length <= 8) {
-    for (int8_t i = 0; i < (8 - FIS_WRITE_line1_length); i++) {
+    for (int i = 0; i < (8 - FIS_WRITE_line1_length); i++) {
       FIS_WRITE_line1 += " ";
     }
   }
   if (FIS_WRITE_line2_length <= 8) {
-    for (int8_t i = 0; i < (8 - FIS_WRITE_line2_length); i++) {
+    for (int i = 0; i < (8 - FIS_WRITE_line2_length); i++) {
       FIS_WRITE_line2 += " ";
     }
   }
@@ -239,13 +249,13 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   FIS_WRITE_startENA();
   FIS_WRITE_sendByte(FIS_WRITE_START);
 
-  for (int8_t i = 0; i <= 7; i++)
+  for (int i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line1[i]);
     FIS_WRITE_CRC += FIS_WRITE_line1[i];
   }
 
-  for (int8_t i = 0; i <= 7; i++)
+  for (int i = 0; i <= 7; i++)
   {
     FIS_WRITE_sendByte(0xFF ^ FIS_WRITE_line2[i]);
     FIS_WRITE_CRC += FIS_WRITE_line2[i];
@@ -256,15 +266,15 @@ void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
   FIS_WRITE_stopENA();
 }
 
-void FIS_WRITE_sendByte(int8_t byte) {
-  static int8_t iResult[8];
-  for (int8_t i = 0; i <= 7; i++)
+void FIS_WRITE_sendByte(int Byte) {
+  static int iResult[8];
+  for (int i = 0; i <= 7; i++)
   {
-    iResult[i] = byte % 2;
-    byte = byte / 2;
+    iResult[i] = Byte % 2;
+    Byte = Byte / 2;
   }
 
-  for (int8_t i = 7; i >= 0; i--) {
+  for (int i = 7; i >= 0; i--) {
     switch (iResult[i]) {
       case 1: digitalWrite(FIS_WRITE_DATA, HIGH);
         break;
@@ -278,14 +288,20 @@ void FIS_WRITE_sendByte(int8_t byte) {
   }
 }
 
-//START WRITE TO CLUSTER
 void FIS_WRITE_startENA() {
   if (!digitalRead(FIS_WRITE_ENA)) {
     digitalWrite(FIS_WRITE_ENA, HIGH);
+    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
+    //  digitalWrite(FIS_WRITE_ENA,LOW);
+    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
+    //  digitalWrite(FIS_WRITE_ENA,HIGH);
+    //  delayMicroseconds(FIS_WRITE_STARTPULSEW);
+    // FIS_WRITE_ENA_STATUS=1;
   }
 }
 
-//END WRITE TO CLUSTER
 void FIS_WRITE_stopENA() {
   digitalWrite(FIS_WRITE_ENA, LOW);
+  // FIS_WRITE_ENA_STATUS=0;
 }
+//
