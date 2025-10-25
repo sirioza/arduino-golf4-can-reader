@@ -1,6 +1,6 @@
 #include "vehicle_utils.h"
 
-const int points = 54;
+const int points = 30;
 uint16_t rpmTable[points] = {
   800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600,
   2800, 3000, 3200, 3400, 3600, 3800, 4000, 4200, 4400, 4600,

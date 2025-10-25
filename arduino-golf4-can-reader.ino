@@ -1,8 +1,14 @@
 #include <SPI.h>
+#include <Encoder.h>
 #include "can_handler.h"
 #include "config.h"
 #include "vehicle_utils.h"
 #include "string_utils.h"
+
+Encoder encoder(ENCODER_CLK, ENCODER_DT);
+uint8_t position = 0;
+int32_t oldEnc = 0;
+const uint8_t MAX_ENC = 6;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -38,8 +44,7 @@ void FIS_WRITE_stopENA();
 //END WRITE TO CLUSTER
 
 void setup() {
-
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   //WRITE TO CLUSTER
   pinMode(FIS_WRITE_ENA, OUTPUT);
@@ -49,43 +54,25 @@ void setup() {
   pinMode(FIS_WRITE_DATA, OUTPUT);
   digitalWrite(FIS_WRITE_DATA, HIGH);
 
-  pinMode(ENC_BTN_PIN_UP, INPUT_PULLUP);
-  pinMode(ENC_BTN_PIN_DOWN, INPUT_PULLUP);
+  pinMode(ENCODER_CLK, INPUT_PULLUP);
+  pinMode(ENCODER_DT, INPUT_PULLUP);
+  //pinMode(ENCODER_SW, INPUT_PULLUP);
 
   delay(1200); // time to set Serial before Can
 
   CAN_Init(3);
 }
 
-const uint16_t holdDelay = 3000;
-uint32_t lastSwitchTime = 0;
-uint8_t position = 0;
-const uint8_t MAX_ENC = 6;
-
 void loop() {
 
-  bool btnUp = digitalRead(ENC_BTN_PIN_UP) == LOW;
-  bool btnDown = digitalRead(ENC_BTN_PIN_DOWN) == LOW;
-
-  uint32_t now = millis();
-
-  if ((btnUp || btnDown) && now - lastSwitchTime > holdDelay) {
-    if (btnUp) {
-      position++;
-      if (position > MAX_ENC){
-         position = 1;
-      }
+  int32_t newEnc = encoder.read() / 2;
+  if (newEnc != oldEnc) {
+    position++;
+    if (position > MAX_ENC){
+      position = 1;
     }
-
-    if (btnDown) {
-      position--;
-      if (position < 1){
-         position = MAX_ENC;
-      }
-    }
-
-    lastSwitchTime = now;
     speedRange_kmh = position == 3 ? 100.0f : 60.0f;
+    oldEnc = newEnc;
   }
 
   if (CAN_HasMessage()) {
@@ -100,10 +87,10 @@ void loop() {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
 
         if (position == 6){
-          float torqueNm = getTorque(rpm);
+          torqueNm = getTorque(rpm);
           float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
-          float powerKW = torqueNm * omega / 1000.0;
-          float powerHP = powerKW * HP_CONV;
+          powerKW = torqueNm * omega / 1000.0;
+          powerHP = powerKW * HP_CONV;
         }
 
         break;
@@ -232,8 +219,8 @@ void loop() {
 
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
-  Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
-  Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
+  //Serial.print("|"); Serial.print(FIS_WRITE_line1); Serial.println("|");
+  //Serial.print("|"); Serial.print(FIS_WRITE_line2); Serial.println("|");
 
   uint8_t FIS_WRITE_line1_length = FIS_WRITE_line1.length();
   uint8_t FIS_WRITE_line2_length = FIS_WRITE_line2.length();

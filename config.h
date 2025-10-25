@@ -10,5 +10,7 @@
 #define SPI_CS_PIN 10   // CS
 #define CAN_INT_PIN 9   // INT
 
-#define ENC_BTN_PIN_UP 8
-#define ENC_BTN_PIN_DOWN 7
+//ENCODER PIN
+#define ENCODER_CLK 6
+#define ENCODER_DT 7
+//#define ENC_BTN_SW 8
