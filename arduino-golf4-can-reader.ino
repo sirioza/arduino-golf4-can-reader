@@ -78,11 +78,17 @@ void setup() {
 void loop() {
 
   int32_t newEnc = encoder.read() / 2;
-  if (newEnc != oldEnc) {
-    position++;
+    if (newEnc != oldEnc) {
+    int8_t step = (newEnc > oldEnc) ? 1 : -1;
+    position += step;
+
     if (position > MAX_ENC){
       position = 1;
     }
+    if (position < 1){
+      position = MAX_ENC;
+    }
+
     speedRange_kmh = position == 3 ? 100.0f : 60.0f;
     oldEnc = newEnc;
   }
