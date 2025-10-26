@@ -11,7 +11,7 @@ bool isCanOk = false;
 Encoder encoder(ENCODER_CLK, ENCODER_DT);
 uint8_t position = 0;
 int32_t oldEnc = 0;
-const uint8_t MAX_ENC = 6;
+const uint8_t MAX_ENC = 7;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -99,7 +99,7 @@ void loop() {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
 
-        if (position == 6){
+        if (position == 6 || position == 7){
           torqueNm = getTorque(rpm);
           float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
           powerKW = torqueNm * omega / 1000.0;
@@ -144,10 +144,13 @@ void loop() {
     }
   }
 
+  String line1;
+  String line2;
+
   switch (position) {
     case 0:
-      FIS_WRITE_line1 = centerString8("WELCOME");
-      FIS_WRITE_line2 = centerString8("SIARHEI");
+      line1 = "WELCOME";
+      line2 = "SIARHEI";
 
       if (smallStringCount >= 10000/refreshClusterTime){
         smallStringCount = 0;
@@ -155,27 +158,37 @@ void loop() {
       }
       break;
     case 1:
-      FIS_WRITE_line1 = centerString8("RPM");
-      FIS_WRITE_line2 = centerString8(String(rpm));
+      line1 = "RPM";
+      line2 = String(rpm);
       break;
     case 2:
-      FIS_WRITE_line1 = centerString8("COOLANT");
-      FIS_WRITE_line2 = centerString8(String(coolantTemp) + "kC");
+      line1 = "COOLANT";
+      line2 = String(coolantTemp) + "kC";
       break;
     case 3:
     case 4:
-      FIS_WRITE_line1 = centerString8("0-" + String(position == 3 ? "100" : "60") + "KMH");
-      FIS_WRITE_line2 = centerString8(String(accelTime) + "S");
+      line1 = "0-" + String(position == 3 ? "100" : "60") + "KMH";
+      line2 = String(accelTime) + "S";
       break;
     case 5:
-      FIS_WRITE_line1 = centerString8("SPEED");
-      FIS_WRITE_line2 = centerString8(String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H");
+      line1 = "SPEED";
+      line2 = String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H";
       break;
     case 6:
-      FIS_WRITE_line1 = centerString8(String((uint8_t)(powerHP + 0.5)) + "HP");
-      FIS_WRITE_line2 = centerString8(String((uint8_t)(torqueNm + 0.5)) + "NM");
+      line1 = "TORQUE";
+      line2 = String((uint8_t)(torqueNm + 0.5)) + "NM";
       break;
+    case 7:
+      line1 = "POWER";
+      line2 = String((uint8_t)(powerHP + 0.5)) + "HP";
+      break;
+    default:
+      line1 = "jjjjjjjjUNDEFINED SCREENjjjjjjjj";
+      line2 = "        ";
   }
+
+  FIS_WRITE_line1 = centerString8(line1);
+  FIS_WRITE_line2 = centerString8(line2);
 
   //refresh cluster each "refreshClusterTime"
   int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
