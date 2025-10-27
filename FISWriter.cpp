@@ -5,7 +5,9 @@
 FISWriter::FISWriter(uint8_t enaPin, uint8_t clkPin, uint8_t dataPin, uint16_t pulseWidth)
   : _enaPin(enaPin), _clkPin(clkPin), _dataPin(dataPin),
     _pulseWidth(pulseWidth), _rotaryPosLine1(-8), _rotaryPosLine2(-8),
-    _lastRefresh(0), _crc(0), _refreshTime(300) {
+    _lastRefresh(0), _crc(0), _refreshTime(300) { }
+
+void FISWriter::begin() {
   pinMode(_enaPin, OUTPUT);
   pinMode(_clkPin, OUTPUT);
   pinMode(_dataPin, OUTPUT);

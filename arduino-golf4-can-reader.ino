@@ -35,6 +35,8 @@ float powerHP = 0;
 void setup() {
   Serial.begin(9600);
 
+  FIS.begin();
+
   pinMode(ENCODER_CLK, INPUT_PULLUP);
   pinMode(ENCODER_DT, INPUT_PULLUP);
   //pinMode(ENC_BTN_SW, INPUT_PULLUP);

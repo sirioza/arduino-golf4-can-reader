@@ -7,6 +7,7 @@ public:
 
   void update(const String& line1, const String& line2);
   void setRefreshTime(uint16_t refreshTime);
+  void begin();
 
 private:
   void sendText(const String& line1, const String& line2);
