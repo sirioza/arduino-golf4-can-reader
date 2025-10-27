@@ -3,7 +3,7 @@
 
 class FISWriter {
 public:
-  FISWriter(uint8_t enaPin, uint8_t clkPin, uint8_t dataPin, uint16_t pulseWidth);
+  FISWriter(uint8_t enaPin, uint8_t clkPin, uint8_t dataPin);
 
   void update(const String& line1, const String& line2);
   void setRefreshTime(uint16_t refreshTime);

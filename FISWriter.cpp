@@ -1,10 +1,12 @@
 #include "FISWriter.h"
 
-#define FIS_WRITE_START 0xFF
+#define FIS_WRITE_PULSEW 50
+#define FIS_WRITE_STARTPULSEW 100
+#define FIS_WRITE_START 15 //something like address, first byte is always 15
 
-FISWriter::FISWriter(uint8_t enaPin, uint8_t clkPin, uint8_t dataPin, uint16_t pulseWidth)
+FISWriter::FISWriter(uint8_t enaPin, uint8_t clkPin, uint8_t dataPin)
   : _enaPin(enaPin), _clkPin(clkPin), _dataPin(dataPin),
-    _pulseWidth(pulseWidth), _rotaryPosLine1(-8), _rotaryPosLine2(-8),
+    _rotaryPosLine1(-8), _rotaryPosLine2(-8),
     _lastRefresh(0), _crc(0), _refreshTime(300) { }
 
 void FISWriter::begin() {
@@ -110,9 +112,9 @@ void FISWriter::sendByte(int Byte) {
   for (int i = 7; i >= 0; i--) {
     digitalWrite(_dataPin, (Byte >> i) & 1 ? HIGH : LOW);
     digitalWrite(_clkPin, LOW);
-    delayMicroseconds(_pulseWidth);
+    delayMicroseconds(FIS_WRITE_PULSEW);
     digitalWrite(_clkPin, HIGH);
-    delayMicroseconds(_pulseWidth);
+    delayMicroseconds(FIS_WRITE_PULSEW);
   }
 }
 

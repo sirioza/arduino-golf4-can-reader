@@ -5,7 +5,7 @@
 #include "vehicle_utils.h"
 #include "FISWriter.h"
 
-FISWriter FIS(FIS_WRITE_ENA, FIS_WRITE_CLK, FIS_WRITE_DATA, FIS_WRITE_PULSEW);
+FISWriter FIS(FIS_WRITE_ENA, FIS_WRITE_CLK, FIS_WRITE_DATA);
 String line1;
 String line2;
 
