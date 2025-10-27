@@ -152,8 +152,8 @@ void loop() {
 
   switch (position) {
     case 0:
-      FIS_WRITE_line1 = "WELCOME";
-      FIS_WRITE_line2 = "SIARHEI";
+      FIS_WRITE_line1 = "VW";
+      FIS_WRITE_line2 = "GOLF IV";
 
       if (smallStringCount >= 10000/refreshClusterTime){
         smallStringCount = 0;
