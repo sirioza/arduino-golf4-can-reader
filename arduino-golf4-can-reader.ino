@@ -81,9 +81,9 @@ void loop() {
     position += step;
 
     if (position > MAX_ENC){
-      position = 1;
+      position = 0;
     }
-    if (position < 1){
+    if (position < 0){
       position = MAX_ENC;
     }
 
