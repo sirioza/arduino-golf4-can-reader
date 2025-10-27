@@ -21,7 +21,6 @@ uint32_t FIS_WRITE_last_refresh = 0;
 uint8_t FIS_WRITE_CRC = 0;
 
 uint16_t smallStringCount = 0;
-uint16_t refreshClusterTime = 300;
 
 uint16_t rpm = 0;
 int16_t coolantTemp = 0;
@@ -155,7 +154,7 @@ void loop() {
       FIS_WRITE_line1 = "VW";
       FIS_WRITE_line2 = "GOLF IV";
 
-      if (smallStringCount >= 10000/refreshClusterTime){
+      if (smallStringCount >= 10000/REFRESH_CLASTER_TIME){
         smallStringCount = 0;
         position++;
       }
@@ -190,14 +189,13 @@ void loop() {
       FIS_WRITE_line2 = "        ";
   }
 
-  //refresh cluster each "refreshClusterTime"
   int FIS_WRITE_line1_length = FIS_WRITE_line1.length();
   int FIS_WRITE_line2_length = FIS_WRITE_line2.length();
   String FIS_WRITE_sendline1 = "        ";
   String FIS_WRITE_sendline2 = "        ";
 
-  //refresh cluster each "refreshClusterTime"
-  if (millis() - FIS_WRITE_last_refresh > refreshClusterTime && (FIS_WRITE_line1_length > 0 || FIS_WRITE_line2_length > 0)) {
+  //refresh cluster each "REFRESH_CLASTER_TIME"
+  if (millis() - FIS_WRITE_last_refresh > REFRESH_CLASTER_TIME && (FIS_WRITE_line1_length > 0 || FIS_WRITE_line2_length > 0)) {
     if (FIS_WRITE_line1_length > 8) {
 
       for (int i = 0; i < 8; i++) {

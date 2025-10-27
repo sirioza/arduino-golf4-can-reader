@@ -5,6 +5,7 @@
 #define FIS_WRITE_PULSEW 50
 #define FIS_WRITE_STARTPULSEW 100
 #define FIS_WRITE_START 15 //something like address, first byte is always 15
+#define REFRESH_CLASTER_TIME 300
 
 //CAN PIN
 #define SPI_CS_PIN 10   // CS
