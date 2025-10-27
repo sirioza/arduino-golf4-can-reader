@@ -11,7 +11,7 @@ bool isCanOk = false;
 Encoder encoder(ENCODER_CLK, ENCODER_DT);
 uint8_t position = 0;
 int32_t oldEnc = 0;
-const uint8_t MAX_ENC = 7;
+const uint8_t MAX_ENC = 8;
 
 String FIS_WRITE_line1 = "";
 String FIS_WRITE_line2 = "";
@@ -153,11 +153,6 @@ void loop() {
     case 0:
       FIS_WRITE_line1 = "VW";
       FIS_WRITE_line2 = "GOLF IV";
-
-      if (smallStringCount >= 10000/REFRESH_CLASTER_TIME){
-        smallStringCount = 0;
-        position++;
-      }
       break;
     case 1:
       FIS_WRITE_line1 = "RPM";
@@ -230,7 +225,6 @@ void loop() {
       }
     }
     else {
-      smallStringCount++;
       FIS_WRITE_sendline2 = centerString8(FIS_WRITE_line2);
     }
 
