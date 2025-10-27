@@ -9,7 +9,7 @@ MCP_CAN CAN(SPI_CS_PIN);
 bool isCanOk = false;
 
 Encoder encoder(ENCODER_CLK, ENCODER_DT);
-uint8_t position = 0;
+uint8_t position = 1;
 int32_t oldEnc = 0;
 const uint8_t MAX_ENC = 8;
 
@@ -61,7 +61,7 @@ void setup() {
 
   delay(1200); // time to set Serial before Can
 
-  for (byte i = 0; i < 5; i++) {
+  for (byte i = 0; i < 3; i++) {
     isCanOk = CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK;
     if(isCanOk) {
       CAN.setMode(MCP_NORMAL);
@@ -81,13 +81,13 @@ void loop() {
     position += step;
 
     if (position > MAX_ENC){
-      position = 0;
+      position = 1;
     }
-    if (position < 0){
+    if (position < 1){
       position = MAX_ENC;
     }
 
-    speedRange_kmh = position == 3 ? 100.0f : 60.0f;
+    speedRange_kmh = position == 4 ? 100.0f : 60.0f;
     oldEnc = newEnc;
   }
 
@@ -103,7 +103,7 @@ void loop() {
       case RPM_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
 
-        if (position == 6 || position == 7){
+        if (position == 7 || position == 8){
           torqueNm = getTorque(rpm);
           float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
           powerKW = torqueNm * omega / 1000.0;
@@ -120,7 +120,7 @@ void loop() {
       case ABS_SPEED_ID: {
         absSpeed_kmh = (((uint16_t)buf[3] << 8) | buf[2]) / 200.0f;
 
-        if (position != 3 && position != 4){
+        if (position != 4 && position != 5){
           break;
         }
 
@@ -150,32 +150,32 @@ void loop() {
 
 
   switch (position) {
-    case 0:
+    case 1:
       FIS_WRITE_line1 = "VW";
       FIS_WRITE_line2 = "GOLF IV";
       break;
-    case 1:
+    case 2:
       FIS_WRITE_line1 = "RPM";
       FIS_WRITE_line2 = String(rpm);
       break;
-    case 2:
+    case 3:
       FIS_WRITE_line1 = "COOLANT";
       FIS_WRITE_line2 = String(coolantTemp) + "kC";
       break;
-    case 3:
     case 4:
-      FIS_WRITE_line1 = "0-" + String(position == 3 ? "100" : "60") + "KMH";
+    case 5:
+      FIS_WRITE_line1 = "0-" + String(position == 4 ? "100" : "60") + "KMH";
       FIS_WRITE_line2 = String(accelTime) + "S";
       break;
-    case 5:
+    case 6:
       FIS_WRITE_line1 = "SPEED";
       FIS_WRITE_line2 = String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H";
       break;
-    case 6:
+    case 7:
       FIS_WRITE_line1 = "TORQUE";
       FIS_WRITE_line2 = String((uint8_t)(torqueNm + 0.5)) + "NM";
       break;
-    case 7:
+    case 8:
       FIS_WRITE_line1 = "POWER";
       FIS_WRITE_line2 = String((uint8_t)(powerHP + 0.5)) + "HP";
       break;
