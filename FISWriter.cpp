@@ -23,8 +23,13 @@ void FISWriter::setRefreshTime(uint16_t refreshTime) {
 }
 
 void FISWriter::update(const String& line1, const String& line2) {
-  if (millis() - _lastRefresh < _refreshTime) return;
-  if (line1.length() == 0 && line2.length() == 0) return;
+  if (millis() - _lastRefresh < _refreshTime){
+    return;
+  }
+  
+  if (line1.length() == 0 && line2.length() == 0){
+    return;
+  }
 
   String sendLine1 = "        ";
   String sendLine2 = "        ";
@@ -32,8 +37,7 @@ void FISWriter::update(const String& line1, const String& line2) {
   int len1 = line1.length();
   if (len1 > 8) {
     int maxStart1 = len1 - 8;
-    if (_rotaryPosLine1 < 0)
-    {
+    if (_rotaryPosLine1 < 0) {
       _rotaryPosLine1 = 0;
     }
 
@@ -82,35 +86,57 @@ void FISWriter::update(const String& line1, const String& line2) {
   _lastRefresh = millis();
 }
 
-
 void FISWriter::sendText(const String& line1, const String& line2) {  
-  Serial.print("|"); Serial.print(line1); Serial.println("|");
-  Serial.print("|"); Serial.print(line2); Serial.println("|");
+//void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2) {
+  //Serial.print("|"); Serial.print(line1); Serial.println("|");
+  //Serial.print("|"); Serial.print(line2); Serial.println("|");
 
-  String l1 = line1, l2 = line2;
-  while (l1.length() < 8) l1 += " ";
-  while (l2.length() < 8) l2 += " ";
+  int line1_length = line1.length();
+  int line2_length = line2.length();
+  if (line1_length <= 8) {
+    for (int i = 0; i < (8 - line1_length); i++) {
+      line1 += " ";
+    }
+  }
+  if (line2_length <= 8) {
+    for (int i = 0; i < (8 - line2_length); i++) {
+      line2 += " ";
+    }
+  }
 
   _crc = (0xFF ^ FIS_WRITE_START);
   startENA();
   sendByte(FIS_WRITE_START);
 
-  for (int i = 0; i < 8; i++) {
-    sendByte(0xFF ^ l1[i]);
-    _crc += l1[i];
+  for (int i = 0; i <= 7; i++) {
+    sendByte(0xFF ^ line1[i]);
+    _crc += line1[i];
   }
 
-  for (int i = 0; i < 8; i++) {
-    sendByte(0xFF ^ l2[i]);
-    _crc += l2[i];
+  for (int i = 0; i <= 7; i++) {
+    sendByte(0xFF ^ line2[i]);
+    _crc += line2[i];
   }
+
   sendByte(_crc % 0x100);
+
   stopENA();
 }
 
 void FISWriter::sendByte(int Byte) {
+  static int iResult[8];
+  for (int i = 0; i <= 7; i++) {
+    iResult[i] = Byte % 2;
+    Byte = Byte / 2;
+  }
+
   for (int i = 7; i >= 0; i--) {
-    digitalWrite(_dataPin, (Byte >> i) & 1 ? HIGH : LOW);
+    switch (iResult[i]) {
+      case 1: digitalWrite(_dataPin, HIGH);
+        break;
+      case 0: digitalWrite(_dataPin, LOW);
+        break;
+    }
     digitalWrite(_clkPin, LOW);
     delayMicroseconds(FIS_WRITE_PULSEW);
     digitalWrite(_clkPin, HIGH);
@@ -118,8 +144,10 @@ void FISWriter::sendByte(int Byte) {
   }
 }
 
-void FISWriter::startENA() {
-  digitalWrite(_enaPin, HIGH);
+void FISWriter::startENA() {  
+  if (!digitalRead(_enaPin)) {
+    digitalWrite(_enaPin, HIGH);
+  }
 }
 
 void FISWriter::stopENA() {
