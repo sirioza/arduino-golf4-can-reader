@@ -31,12 +31,6 @@ bool reachedSpeed = false;
 float speedRange_kmh = 100;
 static uint32_t startTime = 0;
 
-const float HP_CONV = 1.34102209;    // kW -> metric hp
-float torqueNm = 0;
-float lastTorqueNm = 0;
-float powerKW = 0;
-float powerHP = 0;
-
 //WRITE TO CLUSTER
 void FIS_WRITE_sendTEXT(String FIS_WRITE_line1, String FIS_WRITE_line2);
 void FIS_WRITE_sendByte(int8_t byte);
@@ -100,16 +94,8 @@ void loop() {
     CAN.readMsgBuf(&id, &len, buf);
 
     switch (id) {
-      case RPM_ID: {
+      case ENGINE_ID: {
         rpm = (((uint16_t)buf[3] << 8) | buf[4]) / 4;
-
-        if (position == 7 || position == 8){
-          torqueNm = getTorque(rpm);
-          float omega = 2.0 * 3.14159265358979323846 * rpm / 60.0;
-          powerKW = torqueNm * omega / 1000.0;
-          powerHP = powerKW * HP_CONV;
-        }
-
         break;
       }
       case COOLANT_TEMP_ID: {
@@ -148,7 +134,6 @@ void loop() {
     }
   }
 
-
   switch (position) {
     case 1:
       FIS_WRITE_line1 = "VW";
@@ -170,14 +155,6 @@ void loop() {
     case 6:
       FIS_WRITE_line1 = "SPEED";
       FIS_WRITE_line2 = String((uint8_t)(absSpeed_kmh + 0.5)) + "KM/H";
-      break;
-    case 7:
-      FIS_WRITE_line1 = "TORQUE";
-      FIS_WRITE_line2 = String((uint8_t)(torqueNm + 0.5)) + "NM";
-      break;
-    case 8:
-      FIS_WRITE_line1 = "POWER";
-      FIS_WRITE_line2 = String((uint8_t)(powerHP + 0.5)) + "HP";
       break;
     default:
       FIS_WRITE_line1 = "jjjjjjjjUNDEFINED SCREENjjjjjjjj";

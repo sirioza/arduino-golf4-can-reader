@@ -19,7 +19,7 @@
 //CLUSTERS ID
 #define SPEEDOMETR_ID 0x5A0
 #define COOLANT_TEMP_ID 0x288
-#define RPM_ID 0x280
+#define ENGINE_ID 0x280
 #define ABS_SPEED_ID 0x1A0
 #define NO_FOUND1_ID 0x488
 #define NO_FOUND2_ID 0x320

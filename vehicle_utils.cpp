@@ -1,19 +1,5 @@
 #include "vehicle_utils.h"
 
-const int points = 32;
-uint16_t rpmTable[points] = {
-  0,    600,  800,  1000, 1200, 1400, 1600, 1800, 2000, 2200,
-  2400, 2600, 2800, 3000, 3200, 3400, 3600, 3800, 4000, 4200,
-  4400, 4600, 4800, 5000, 5200, 5400, 5600, 5800, 6000, 6200,
-  6400, 6500
-};
-float torqueTable[points] = {
-  0,   103, 109, 115, 121, 128, 135, 142, 148, 149,
-  149, 150, 153, 157, 162, 166, 171, 173, 174, 173,
-  170, 165, 160, 158, 160, 158, 155, 150, 145, 140,
-  135, 133
-};
-
 int16_t getCoolantTemp(uint8_t AA) {
     if (AA <= 0x3D) {
       return map(AA, 0x01, 0x3D, -45, 0);       // -45…0°C
@@ -26,24 +12,4 @@ int16_t getCoolantTemp(uint8_t AA) {
     }
 
     return 130;                                 // out of range
-}
-
-float getTorque(uint16_t  rpm) {
-  if (rpm <= rpmTable[0]){
-    return torqueTable[0];
-  }
-
-  if (rpm >= rpmTable[points-1]){
-    return torqueTable[points-1];
-  }
-
-  for (int8_t i = 0; i < points - 1; i++) {
-    if (rpm >= rpmTable[i] && rpm <= rpmTable[i + 1]) {
-      float torque = (rpm - rpmTable[i]) / (rpmTable[i + 1] - rpmTable[i]);
-
-      return torqueTable[i] + torque * (torqueTable[i + 1] - torqueTable[i]);
-    }
-  }
-
-  return torqueTable[points-1];
 }
